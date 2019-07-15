@@ -2,7 +2,7 @@ package hold
 
 import (
 	"context"
-	"github.com/aptible/mini-collector/batch"
+	"github.com/aptible/mega-collector/batch"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

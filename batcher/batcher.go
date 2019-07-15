@@ -2,8 +2,8 @@ package batcher
 
 import (
 	"context"
-	"github.com/aptible/mini-collector/batch"
-	"github.com/aptible/mini-collector/emitter"
+	"github.com/aptible/mega-collector/batch"
+	"github.com/aptible/mega-collector/emitter"
 	"github.com/sirupsen/logrus"
 	"time"
 )
@@ -72,7 +72,6 @@ func (b *batcher) run(ctx context.Context) {
 
 	// TODO: Need to drainBatch without the cancelled context here!
 }
-
 func (b *batcher) prepareBatch(id uint64, ctx context.Context) batch.Batch {
 	currentBatch := batch.Batch{
 		Id:      id,

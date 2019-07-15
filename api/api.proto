@@ -1,28 +1,14 @@
 syntax = "proto3";
 
 service Aggregator {
-	rpc Publish (PublishRequest) returns (PublishResponse) {}
+    rpc Publish (PublishRequest) returns (PublishResponse) {}
 }
 
-// NOTE: Protocol buffers used variable-length encoding, so even though uint64
-// is arguably much bigger than we'd need, it's simpler to just use that. We
-// do, however, use signed ints for disk usage and limit because those fields
-// are optional (and should not be reported if they are < 0).
 message PublishRequest {
-	int64 unix_time = 1;
-	bool running = 2;
-	uint64 milli_cpu_usage = 3;
-	uint64 memory_total_mb = 4;
-	uint64 memory_rss_mb = 5;
-	uint64 memory_limit_mb = 6;
-	sint64 disk_usage_mb = 7;
-	sint64 disk_limit_mb = 8;
-	uint64 disk_read_kbps = 9;
-	uint64 disk_write_kbps = 10;
-	uint64 disk_read_iops = 11;
-	uint64 disk_write_iops = 12;
-	uint64 pids_current = 13;
-	uint64 pids_limit = 14;
+    int64 unix_time = 1;
+    string log = 2;
+    string time = 3;
+    string stream = 4;
 }
 
 message PublishResponse {

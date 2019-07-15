@@ -1,7 +1,7 @@
 package writer
 
 import (
-	"github.com/aptible/mini-collector/batch"
+	"github.com/aptible/mega-collector/batch"
 )
 
 type Writer interface {

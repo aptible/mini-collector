@@ -3,7 +3,7 @@ package text
 import (
 	"context"
 	"fmt"
-	"github.com/aptible/mini-collector/batch"
+	"github.com/aptible/mega-collector/batch"
 )
 
 type textEmitter struct{}

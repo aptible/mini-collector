@@ -10,8 +10,8 @@ import (
 	"context"
 	"fmt"
 	pagerduty "github.com/PagerDuty/go-pagerduty"
-	"github.com/aptible/mini-collector/batch"
-	"github.com/aptible/mini-collector/emitter"
+	"github.com/aptible/mega-collector/batch"
+	"github.com/aptible/mega-collector/emitter"
 	log "github.com/sirupsen/logrus"
 )
 

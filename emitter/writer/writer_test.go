@@ -3,8 +3,8 @@ package writer
 import (
 	"context"
 	"fmt"
-	"github.com/aptible/mini-collector/batch"
-	"github.com/aptible/mini-collector/emitter/blackhole"
+	"github.com/aptible/mega-collector/batch"
+	"github.com/aptible/mega-collector/emitter/blackhole"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

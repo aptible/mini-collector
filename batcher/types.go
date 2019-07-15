@@ -2,7 +2,7 @@ package batcher
 
 import (
 	"context"
-	"github.com/aptible/mini-collector/batch"
+	"github.com/aptible/mega-collector/batch"
 )
 
 type Batcher interface {

@@ -2,20 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/aptible/mini-collector/api"
-	"github.com/aptible/mini-collector/batch"
-	"github.com/aptible/mini-collector/batcher"
-	"github.com/aptible/mini-collector/emitter"
-	"github.com/aptible/mini-collector/emitter/blackhole"
-	"github.com/aptible/mini-collector/emitter/hold"
-	"github.com/aptible/mini-collector/emitter/notify"
-	"github.com/aptible/mini-collector/emitter/text"
-	"github.com/aptible/mini-collector/emitter/writer"
+	"github.com/aptible/mega-collector/api"
+	"github.com/aptible/mega-collector/batch"
+	"github.com/aptible/mega-collector/batcher"
+	"github.com/aptible/mega-collector/emitter"
+	"github.com/aptible/mega-collector/emitter/text"
 	"github.com/aptible/mini-collector/tls"
-	"github.com/aptible/mini-collector/writer/datadog"
-	"github.com/aptible/mini-collector/writer/influxdb"
 	grpcLogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -25,6 +18,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -55,14 +49,14 @@ type server struct {
 	batcher batcher.Batcher
 }
 
-func (s *server) Publish(ctx context.Context, point *api.PublishRequest) (*api.PublishResponse, error) {
+func (s *server) Publish(ctx context.Context, line *api.PublishRequest) (*api.PublishResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 
 	if !ok {
 		return nil, fmt.Errorf("no metadata")
 	}
 
-	ts := time.Unix(point.UnixTime, 0)
+	ts := time.Unix(line.UnixTime, 0)
 
 	tags := map[string]string{}
 
@@ -85,7 +79,7 @@ func (s *server) Publish(ctx context.Context, point *api.PublishRequest) (*api.P
 	err := s.batcher.Ingest(ctx, &batch.Entry{
 		Time:           ts,
 		Tags:           tags,
-		PublishRequest: *point,
+		PublishRequest: *line,
 	})
 
 	if err != nil {
@@ -95,106 +89,9 @@ func (s *server) Publish(ctx context.Context, point *api.PublishRequest) (*api.P
 	return &api.PublishResponse{}, nil
 }
 
-func makeFinalEmitter() (emitter.Emitter, error) {
-	notifyConfig := &notify.Config{}
-	ok, err := tryLoadConfiguration("AGGREGATOR_NOTIFY_CONFIGURATION", notifyConfig)
-	if err != nil {
-		return nil, fmt.Errorf("could not decode notify configuration: %v", err)
-	}
-
-	if ok {
-		return notify.Open(notifyConfig), nil
-	}
-
-	return blackhole.Open(), nil
-}
-
-func stackWriters(writerFactory func() (writer.CloseWriter, error), namePrefix string, count int) (emitter.Emitter, func(), error) {
-	name := fmt.Sprintf("%s %d", namePrefix, count)
-
-	w, err := writerFactory()
-	if err != nil {
-		return nil, nil, fmt.Errorf("writerFactory failed: %v", err)
-	}
-
-	if count <= 1 {
-		finalEmitter, err := makeFinalEmitter()
-		if err != nil {
-			w.Close()
-			return nil, nil, fmt.Errorf("makeFinalEmitter failed: %v", err)
-		}
-
-		em := writer.Open(name, w, finalEmitter)
-
-		return em, func() {
-			em.Close()
-			w.Close()
-			finalEmitter.Close()
-		}, nil
-	}
-
-	nextCount := count - 1
-	nextEmitter, closeNext, err := stackWriters(writerFactory, namePrefix, nextCount)
-
-	if err != nil {
-		w.Close()
-		return nil, nil, fmt.Errorf("stackWriters(%d) failed: %v", nextCount, err)
-	}
-
-	// TODO: Backoff based on count
-	holdEmitter := hold.Open(5*time.Second, nextEmitter)
-
-	em := writer.Open(name, w, holdEmitter)
-
-	return em, func() {
-		em.Close()
-		w.Close()
-		holdEmitter.Close()
-		closeNext()
-	}, nil
-}
-
-func tryLoadConfiguration(envVariable string, configStruct interface{}) (bool, error) {
-	jsonConfiguration, ok := os.LookupEnv(envVariable)
-	if !ok {
-		return false, nil
-	}
-
-	err := json.Unmarshal([]byte(jsonConfiguration), configStruct)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-
-}
 
 func getEmitter() (emitter.Emitter, func(), error) {
-	datadogConfig := &datadog.Config{}
-	ok, err := tryLoadConfiguration("AGGREGATOR_DATADOG_CONFIGURATION", datadogConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not decode Datadog configuration: %v", err)
-	}
-	if ok {
-		logger.Infof("using Datadog writer")
-		return stackWriters(func() (writer.CloseWriter, error) {
-			return datadog.Open(datadogConfig)
-		}, "Datadog", 3)
-	}
-
-	influxdbConfig := &influxdb.Config{}
-	ok, err = tryLoadConfiguration("AGGREGATOR_INFLUXDB_CONFIGURATION", influxdbConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not decode InfluxDB configuration: %v", err)
-	}
-	if ok {
-		logger.Infof("using InfluxDB writer")
-		return stackWriters(func() (writer.CloseWriter, error) {
-			return influxdb.Open(influxdbConfig)
-		}, "InfluxDB", 3)
-	}
-
-	_, ok = os.LookupEnv("AGGREGATOR_TEXT_CONFIGURATION")
+	_, ok := os.LookupEnv("AGGREGATOR_TEXT_CONFIGURATION")
 	if ok {
 		logger.Infof("using text emitter")
 		em := text.Open()
@@ -215,10 +112,20 @@ func getBatcher(em emitter.Emitter) (batcher.Batcher, error) {
 		return nil, fmt.Errorf("invalid minimum publish frequency (%s): %v", minPublishFrequencyText, err)
 	}
 
+	maxBatchSizeText, ok := os.LookupEnv("AGGREGATOR_MAX_BATCH_SIZE")
+	if !ok {
+		maxBatchSizeText = "1000"
+	}
+
+	maxBatchSize, err := strconv.Atoi(maxBatchSizeText)
+	if err != nil {
+		return nil, fmt.Errorf("invalid max batch size (%s): %v", maxBatchSizeText, err)
+	}
+
 	logger.Infof("minPublishFrequency: %v", minPublishFrequency)
 
 	// TODO: Make batchsize configurable?
-	return batcher.New(em, minPublishFrequency, 1000), nil
+	return batcher.New(em, minPublishFrequency, maxBatchSize), nil
 
 }
 

@@ -1,7 +1,7 @@
 package batch
 
 import (
-	"github.com/aptible/mini-collector/api"
+	"github.com/aptible/mega-collector/api"
 	"time"
 )
 
