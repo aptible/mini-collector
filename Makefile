@@ -1,13 +1,13 @@
-GOFILES_NOVENDOR = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 SHELL=/bin/bash
 
 .PHONY: deps
 deps:
-	dep ensure
+	go mod vendor
 
 .PHONY: build
-build: $(GOFILES_NOVENDOR)
-	go list ./...  | grep cmd | xargs -P $$(nproc) -n 1 -- go build -i
+build:
+	GOOS="linux" CGO_ENABLED=0 GOARCH="amd64" go build -i cmd/aggregator
+	GOOS="linux" CGO_ENABLED=0 GOARCH="amd64" go build -i cmd/mini-collector
 
 writer/influxdb/api.proto.influxdb_formatter.go \
 writer/datadog/api.proto.datadog_formatter.go \
@@ -16,27 +16,19 @@ api/api.proto .codegen/emit.py \
 .codegen/influxdb_formatter.go.jinja2 \
 .codegen/datadog_formatter.go.jinja2 \
 .codegen/publisher_formatter.go.jinja2
-	retool do protoc -I api api/api.proto --plugin=protoc-gen-custom=./.codegen/emit.py --custom_out=.
+	protoc -I api api/api.proto --plugin=protoc-gen-custom=./.codegen/emit.py --custom_out=.
 	find . -name "api.proto.*_formatter.go" | xargs gofmt -l -w
 
 api/api.pb.go: api/api.proto
-	retool do protoc -I api/ api/api.proto --go_out=plugins=grpc:api
-
-.PHONY: gofiles
-src: $(GOFILES_NOVENDOR) fmt
-	@true
-
-.PHONY: unit
-unit: $(GOFILES_NOVENDOR)
-	go test $$(go list ./... | grep -v /vendor/)
-	go vet $$(go list ./... | grep -v /vendor/)
+	protoc -I api/ api/api.proto --go_out=plugins=grpc:api
 
 .PHONY: test
-test: unit
-	@true
+test:
+	go test ./...
+	go vet ./...
 
 .PHONY: fmt
 fmt:
-	gofmt -l -w ${GOFILES_NOVENDOR}
+	gofmt -l -w ./...
 
 .DEFAULT_GOAL := test

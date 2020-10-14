@@ -1,13 +1,12 @@
 jobs:
   include:
-
     - stage: golang
       sudo: false
-      dist: trusty
+      dist: xenial
       language: go
-      go: "1.9"
+      go: "1.15"
       before_install:
-        - export PYENV_VERSION=3.6
+        - export PYENV_VERSION=3.6.7
         - pip3 install --user -r .codegen/requirements.txt
         - mkdir -p /tmp/protoc
         - pushd /tmp/protoc
@@ -18,17 +17,10 @@ jobs:
         - rm "$PROTOC_ARCHIVE"
         - export PATH="/tmp/protoc/bin:$PATH"
         - popd
-        - go get -u github.com/twitchtv/retool
-        - retool sync
-        - mkdir -p "${HOME}/gopath/src/github.com/aptible/mini-collector"
-        - rsync -az "${TRAVIS_BUILD_DIR}/" "${HOME}/gopath/src/github.com/aptible/mini-collector/"
-        - export "TRAVIS_BUILD_DIR=${HOME}/gopath/src/github.com/aptible/mini-collector"
-        - cd "$TRAVIS_BUILD_DIR"
-        - go get -u github.com/golang/dep/cmd/dep
       install:
         - make deps
       script:
-        - make --always-make src
+        - make fmt
         - git diff --exit-code
         - make test
 

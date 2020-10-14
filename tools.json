@@ -1,9 +1,0 @@
-{
-  "Tools": [
-    {
-      "Repository": "github.com/golang/protobuf/protoc-gen-go",
-      "Commit": "9eb2c01ac278a5d89ce4b2be68fe4500955d8179"
-    }
-  ],
-  "RetoolVersion": "1.3.7"
-}
